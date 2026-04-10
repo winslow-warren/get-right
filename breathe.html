@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Breathe</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;1,400&family=Karla:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#0D0D0F;--soft:#1A1A1E;--soft2:#222228;--border:rgba(255,255,255,0.07);
+  --gold:#D4A84B;--sky:#7EB8D4;--rose:#D47E9E;--sage:#7DB899;
+  --text:#F0EDE8;--muted:#6A6860;--dim:#3A3830;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Karla',sans-serif;overflow:hidden}
+
+.shell{
+  height:100vh;max-width:430px;margin:0 auto;
+  display:grid;
+  grid-template-rows:auto 1fr auto auto;
+}
+
+/* TOP */
+.top-bar{display:flex;align-items:center;justify-content:space-between;padding:16px 18px 10px}
+.top-title{font-family:'Playfair Display',serif;font-size:24px;font-style:italic}
+.audio-btn{width:36px;height:36px;border-radius:50%;border:1px solid var(--border);background:var(--soft);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s,border-color .2s;flex-shrink:0}
+.audio-btn.on{background:rgba(126,184,212,.12);border-color:var(--sky)}
+.audio-btn svg{width:15px;height:15px;stroke:var(--muted);fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.audio-btn.on svg{stroke:var(--sky)}
+
+/* STAGE */
+.stage{position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.figure-wrap{position:absolute;inset:0;display:flex;align-items:flex-end;justify-content:center;pointer-events:none}
+.figure-wrap svg{height:100%;width:auto;opacity:.13}
+#pathCanvas{position:absolute;inset:0;pointer-events:none}
+
+/* Phase pill + cycle badge */
+.phase-pill{
+  position:absolute;top:12px;left:50%;transform:translateX(-50%);
+  background:var(--soft);border:1px solid var(--border);
+  border-radius:20px;padding:5px 16px;
+  font-size:11px;letter-spacing:.12em;text-transform:uppercase;
+  transition:color .4s,border-color .4s;white-space:nowrap;
+}
+.cycles-badge{
+  position:absolute;top:12px;right:12px;
+  font-size:10px;color:var(--muted);
+  background:var(--soft);border:1px solid var(--border);
+  border-radius:12px;padding:3px 10px;
+}
+
+/* ── SIDE SPINNERS ── */
+.side-col{
+  position:absolute;top:0;bottom:0;
+  display:flex;flex-direction:column;
+  justify-content:center;align-items:center;
+  gap:16px;
+}
+.side-col.left{left:8px}
+.side-col.right{right:8px}
+
+.spin-group{display:flex;flex-direction:column;align-items:center;gap:2px}
+.spin-label{font-size:9px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:2px}
+.spin-box{
+  width:46px;height:42px;border-radius:9px;
+  border:1px solid rgba(255,255,255,.08);background:var(--soft);
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Playfair Display',serif;font-size:22px;
+  transition:border-color .3s,box-shadow .3s;
+  user-select:none;
+}
+.spin-box.lit{border-color:currentColor;box-shadow:0 0 14px -3px currentColor}
+.spin-arrow{
+  width:32px;height:20px;border:none;background:transparent;
+  color:var(--muted);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  border-radius:5px;font-size:10px;line-height:1;padding:0;
+  transition:color .12s,background .12s;
+}
+.spin-arrow:hover{color:var(--text);background:rgba(255,255,255,.06)}
+.spin-arrow:active{transform:scale(.88)}
+/* Inactive hold — shows + to add */
+.spin-group.hold-off .spin-box{opacity:.35;font-size:14px;color:var(--muted)}
+.spin-group.hold-off .spin-arrow.down{display:none}
+
+/* PATTERN BAR */
+.pattern-bar{
+  border-top:1px solid var(--border);
+  padding:9px 12px;display:flex;gap:5px;overflow-x:auto;scrollbar-width:none;
+  flex-shrink:0;
+}
+.pattern-bar::-webkit-scrollbar{display:none}
+.pat-btn{
+  flex-shrink:0;font-family:'Karla',sans-serif;font-size:11px;
+  padding:6px 13px;border-radius:20px;border:1px solid var(--border);
+  background:var(--soft);color:var(--muted);cursor:pointer;white-space:nowrap;
+  transition:border-color .2s,color .2s,background .2s;
+}
+.pat-btn.active{border-color:var(--gold);color:var(--gold);background:rgba(212,168,75,.06)}
+
+/* EFFECTS PANEL */
+.effects-panel{
+  border-top:1px solid var(--border);
+  padding:0 16px 24px;
+  min-height:88px;
+  display:flex;flex-direction:column;justify-content:center;
+}
+.effect-name{
+  font-family:'Playfair Display',serif;
+  font-size:14px;font-style:italic;
+  color:var(--text);margin-bottom:5px;
+  display:flex;align-items:center;gap:8px;
+}
+.effect-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.effect-desc{
+  font-size:12px;color:var(--muted);line-height:1.65;
+  max-width:360px;
+}
+.effect-tags{
+  display:flex;gap:5px;flex-wrap:wrap;margin-top:7px;
+}
+.effect-tag{
+  font-size:10px;padding:3px 9px;border-radius:12px;
+  border:1px solid var(--dim);color:var(--muted);
+  letter-spacing:.04em;
+}
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- TOP -->
+  <div class="top-bar">
+    <div class="top-title">Breathe</div>
+    <button class="audio-btn on" id="audioBtn" onclick="toggleAudio()">
+      <svg viewBox="0 0 24 24">
+        <path d="M11 5L6 9H2v6h4l5 4V5z"/>
+        <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+        <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+      </svg>
+    </button>
+  </div>
+
+  <!-- STAGE -->
+  <div class="stage" id="stage">
+
+    <!-- Figure -->
+    <div class="figure-wrap">
+      <svg viewBox="0 0 160 340" xmlns="http://www.w3.org/2000/svg">
+        <ellipse cx="80" cy="40" rx="32" ry="36" fill="#1A0E06"/>
+        <path d="M48,40 Q28,18 34,58 Q42,72 48,66" fill="#1A0E06"/>
+        <path d="M112,40 Q132,18 126,58 Q118,72 112,66" fill="#1A0E06"/>
+        <path d="M56,14 Q48,6 55,17" fill="none" stroke="#2A1208" stroke-width="3.5"/>
+        <path d="M80,9 Q75,2 81,11" fill="none" stroke="#2A1208" stroke-width="3.5"/>
+        <path d="M104,14 Q112,6 105,17" fill="none" stroke="#2A1208" stroke-width="3.5"/>
+        <rect x="70" y="70" width="20" height="20" rx="5" fill="#5A3418"/>
+        <path d="M38,90 Q26,100 24,136 L24,208 Q24,220 38,222 L122,222 Q136,220 136,208 L136,136 Q134,100 122,90 Z" fill="#3A1E0C"/>
+        <ellipse cx="80" cy="54" rx="28" ry="30" fill="#6B4220"/>
+        <ellipse cx="70" cy="52" rx="4" ry="5" fill="#2A1006"/>
+        <ellipse cx="90" cy="52" rx="4" ry="5" fill="#2A1006"/>
+        <path d="M68,66 Q80,73 92,66" fill="none" stroke="#2A1006" stroke-width="2.5" stroke-linecap="round"/>
+        <ellipse cx="76" cy="61" rx="3" ry="2" fill="#4A2610"/>
+        <ellipse cx="84" cy="61" rx="3" ry="2" fill="#4A2610"/>
+        <path d="M38,97 Q18,135 22,180 L36,178 Q36,144 50,114 Z" fill="#3A1E0C"/>
+        <path d="M122,97 Q142,135 138,180 L124,178 Q124,144 110,114 Z" fill="#3A1E0C"/>
+        <ellipse cx="26" cy="182" rx="10" ry="8" fill="#58321A"/>
+        <ellipse cx="134" cy="182" rx="10" ry="8" fill="#58321A"/>
+        <path d="M24,206 Q24,238 38,248 L70,248 L70,330 L90,330 L90,248 L122,248 Q136,238 136,206 Z" fill="#281606"/>
+        <ellipse cx="68" cy="332" rx="16" ry="6" fill="#1A0E06"/>
+        <ellipse cx="92" cy="332" rx="16" ry="6" fill="#1A0E06"/>
+      </svg>
+    </div>
+
+    <canvas id="pathCanvas"></canvas>
+
+    <!-- Phase pill -->
+    <div class="phase-pill" id="phasePill">inhale</div>
+    <div class="cycles-badge" id="cyclesBadge">cycle 1</div>
+
+    <!-- LEFT: Inhale + Hold in -->
+    <div class="side-col left">
+      <div class="spin-group" id="grpInhale" style="color:var(--sky)">
+        <div class="spin-label" style="color:var(--sky)">Inhale</div>
+        <button class="spin-arrow" onclick="adj('inhale',1)">▲</button>
+        <div class="spin-box" id="boxIn">4</div>
+        <button class="spin-arrow down" onclick="adj('inhale',-1)">▼</button>
+      </div>
+      <div class="spin-group hold-off" id="grpHoldIn" style="color:var(--gold)">
+        <div class="spin-label" style="color:var(--gold);opacity:.5">Hold in</div>
+        <button class="spin-arrow" onclick="adj('holdIn',1)">▲</button>
+        <div class="spin-box" id="boxHoldIn">+</div>
+        <button class="spin-arrow down" onclick="adj('holdIn',-1)">▼</button>
+      </div>
+    </div>
+
+    <!-- RIGHT: Exhale + Hold out -->
+    <div class="side-col right">
+      <div class="spin-group" id="grpExhale" style="color:var(--rose)">
+        <div class="spin-label" style="color:var(--rose)">Exhale</div>
+        <button class="spin-arrow" onclick="adj('exhale',1)">▲</button>
+        <div class="spin-box" id="boxOut">6</div>
+        <button class="spin-arrow down" onclick="adj('exhale',-1)">▼</button>
+      </div>
+      <div class="spin-group hold-off" id="grpHoldOut" style="color:var(--gold)">
+        <div class="spin-label" style="color:var(--gold);opacity:.5">Hold out</div>
+        <button class="spin-arrow" onclick="adj('holdOut',1)">▲</button>
+        <div class="spin-box" id="boxHoldOut">+</div>
+        <button class="spin-arrow down" onclick="adj('holdOut',-1)">▼</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- PATTERN BAR -->
+  <div class="pattern-bar" id="patternBar">
+    <button class="pat-btn active" data-key="4-6"      onclick="setPattern('4-6',this)">4 · 6</button>
+    <button class="pat-btn"        data-key="4-7-8"    onclick="setPattern('4-7-8',this)">4 · 7 · 8</button>
+    <button class="pat-btn"        data-key="box"      onclick="setPattern('box',this)">Box 4·4·4·4</button>
+    <button class="pat-btn"        data-key="coherent" onclick="setPattern('coherent',this)">Coherent 5·5</button>
+    <button class="pat-btn"        data-key="calm"     onclick="setPattern('calm',this)">Calm 6·2·8</button>
+    <button class="pat-btn"        data-key="energize" onclick="setPattern('energize',this)">Energize 6·2</button>
+    <button class="pat-btn"        data-key="custom"   id="btnCustom" style="display:none">Custom</button>
+  </div>
+
+  <!-- EFFECTS PANEL -->
+  <div class="effects-panel" id="effectsPanel"></div>
+
+</div>
+
+<script>
+// ── EFFECT DEFINITIONS ──
+// Each entry: name, dot color, description, tags
+const EFFECTS = {
+  '4-6': {
+    name: 'Calm & settle',
+    color: '#7EB8D4',
+    desc: 'Longer exhale activates the vagus nerve and parasympathetic nervous system. Lowers heart rate, releases tension in the chest and shoulders. Best for winding down, mild anxiety, or transitioning between tasks.',
+    tags: ['stress relief','focus','daily reset','anxiety']
+  },
+  '4-7-8': {
+    name: 'Deep release',
+    color: '#D47E9E',
+    desc: 'The 7-count hold allows CO₂ to build gently, deepening the exhale signal. The long 8-count out breath triggers a strong parasympathetic response. Powerful for sleep onset, acute stress, and emotional overwhelm.',
+    tags: ['sleep','anxiety','emotional reset','deep calm']
+  },
+  'box': {
+    name: 'Clarity & balance',
+    color: '#D4A84B',
+    desc: 'Equal timing in all four phases creates rhythmic coherence in the autonomic nervous system. Used by Navy SEALs and first responders to maintain focus under pressure. Reduces cortisol without sedating.',
+    tags: ['focus','performance','HRV','balance']
+  },
+  'coherent': {
+    name: 'Heart coherence',
+    color: '#7DB899',
+    desc: 'Breathing at 5–6 cycles per minute synchronizes heart rate with breath — the resonance frequency of the cardiovascular system. Maximizes HRV. Clinically studied for anxiety, blood pressure, and emotional regulation.',
+    tags: ['HRV','heart health','resilience','calm']
+  },
+  'calm': {
+    name: 'Slow & ground',
+    color: '#7EB8D4',
+    desc: 'The extended 8-count exhale with a short hold after inhale creates sustained parasympathetic dominance. Slows thought loops, relaxes the gut, and prepares the body for rest or deep work.',
+    tags: ['grounding','rumination','rest','nervous system']
+  },
+  'energize': {
+    name: 'Energize & uplift',
+    color: '#D4A84B',
+    desc: 'Slightly extended inhale with a short hold builds gentle oxygen pressure before a normal exhale. Increases alertness and circulation without overstimulation. Good for morning, post-meal fatigue, or low energy dips.',
+    tags: ['energy','alertness','morning','circulation']
+  },
+};
+
+// Custom effect — computed from pattern values
+function customEffect(p){
+  const ratio = p.exhale / p.inhale;
+  const hasHolds = p.holdIn > 0 || p.holdOut > 0;
+  const totalCycle = p.inhale + (p.holdIn||0) + p.exhale + (p.holdOut||0);
+  const cpm = Math.round(60 / totalCycle * 10) / 10;
+
+  let name, color, desc, tags;
+
+  if(ratio >= 1.8 && !hasHolds){
+    name='Extended exhale'; color='#7DB899';
+    desc=`Your exhale is ${ratio.toFixed(1)}× longer than your inhale — a strong parasympathetic signal. This pattern actively downregulates the nervous system and is effective for stress, anxiety, and pre-sleep relaxation.`;
+    tags=['calm','stress','sleep','parasympathetic'];
+  } else if(ratio <= 0.8 && !hasHolds){
+    name='Inhale emphasis'; color='#D4A84B';
+    desc=`With a longer inhale, you're gently activating the sympathetic system — increasing alertness and energy. Use for low-energy states, morning wake-up, or before physical activity. Keep sessions short (3–5 min).`;
+    tags=['energy','alertness','activation'];
+  } else if(p.holdIn > 0 && p.holdOut > 0){
+    name='Box variant'; color='#D47E9E';
+    desc=`Four-phase breathing with holds builds respiratory control and rhythmic coherence. The holds train breath awareness and increase carbon dioxide tolerance, deepening the calming effect of each exhale.`;
+    tags=['focus','control','HRV','balance'];
+  } else if(p.holdIn > 0){
+    name='Full-lung hold'; color='#D47E9E';
+    desc=`Holding after inhale increases oxygen absorption and activates a mild sympathetic response. Useful for clarity and presence. Pairs well with a long exhale to prevent over-arousal.`;
+    tags=['clarity','oxygen','presence'];
+  } else if(p.holdOut > 0){
+    name='Empty-lung hold'; color='#7DB899';
+    desc=`Holding on empty is a powerful parasympathetic trigger. It trains CO₂ tolerance and deepens the rest signal. Used in pranayama and freediving for calm, focus, and nervous system regulation.`;
+    tags=['deep calm','CO₂ tolerance','pranayama'];
+  } else {
+    name='Custom pattern'; color='var(--muted)';
+    desc=`${cpm} breath cycles per minute. ${ratio >= 1.2 ? 'Exhale-dominant — calming effect.' : ratio <= 0.9 ? 'Inhale-dominant — activating effect.' : 'Balanced ratio — neutral and stabilizing.'}`;
+    tags=[`${cpm} cycles/min`, ratio >= 1.2 ? 'calming' : ratio <= 0.9 ? 'activating' : 'balanced'];
+  }
+  return {name, color, desc, tags};
+}
+
+function renderEffects(key, pat){
+  const e = key === 'custom' ? customEffect(pat) : EFFECTS[key];
+  if(!e) return;
+  const panel = document.getElementById('effectsPanel');
+  panel.innerHTML = `
+    <div class="effect-name">
+      <span class="effect-dot" style="background:${e.color}"></span>
+      ${e.name}
+    </div>
+    <div class="effect-desc">${e.desc}</div>
+    <div class="effect-tags">${e.tags.map(t=>`<span class="effect-tag">${t}</span>`).join('')}</div>
+  `;
+}
+
+// ── STATE ──
+let pattern = {inhale:4,holdIn:0,exhale:6,holdOut:0};
+let activePatKey = '4-6';
+let phase = 'inhale';
+let phaseProgress = 0;
+let cycleCount = 1;
+let lastTs = null;
+let audioOn = true;
+let audioCtx = null;
+let activeNodes = [];
+let prevPhase = null;
+
+const canvas = document.getElementById('pathCanvas');
+const ctx = canvas.getContext('2d');
+
+function resize(){
+  const s = document.getElementById('stage');
+  canvas.width = s.clientWidth;
+  canvas.height = s.clientHeight;
+}
+
+function geom(){ return {cx:canvas.width/2, topY:canvas.height*.07, botY:canvas.height*.76} }
+
+// ── DRAW ──
+function draw(ts){
+  if(!lastTs) lastTs=ts;
+  const dt = Math.min((ts-lastTs)/1000, 0.1);
+  lastTs=ts;
+  resize();
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  const {cx,topY,botY}=geom(), H=botY-topY;
+
+  // Track
+  ctx.beginPath(); ctx.moveTo(cx,topY); ctx.lineTo(cx,botY);
+  ctx.strokeStyle='rgba(255,255,255,0.05)'; ctx.lineWidth=2; ctx.stroke();
+  for(let i=0;i<=10;i++){
+    ctx.beginPath(); ctx.arc(cx,topY+H*(i/10),2,0,Math.PI*2);
+    ctx.fillStyle='rgba(255,255,255,0.07)'; ctx.fill();
+  }
+
+  // Advance
+  const dur=getPhaseDur();
+  if(dur>0){
+    phaseProgress+=dt/dur;
+    if(phaseProgress>=1){ phaseProgress=0; advancePhase(); }
+  }
+
+  // Ball position
+  let f=0;
+  if(phase==='inhale')       f=phaseProgress;
+  else if(phase==='holdIn')  f=1;
+  else if(phase==='exhale')  f=1-phaseProgress;
+  else if(phase==='holdOut') f=0;
+
+  const by=topY+H*f;
+  const isIn=(phase==='inhale'||phase==='holdOut');
+  const rgb=isIn?'126,184,212':'212,126,158';
+  const isHold=(phase==='holdIn'||phase==='holdOut');
+  const flash=isHold?0.5+0.5*Math.sin(ts/180):1;
+
+  // Trail
+  const g=ctx.createLinearGradient(cx,topY,cx,botY);
+  try{
+    const lo=Math.max(0,Math.min(.99,f-.28));
+    const mid=Math.max(lo+.001,Math.min(.999,f));
+    const hi=Math.min(1,Math.max(mid+.001,f+.28));
+    g.addColorStop(lo,`rgba(${rgb},0)`);
+    g.addColorStop(mid,`rgba(${rgb},.3)`);
+    g.addColorStop(hi,`rgba(${rgb},0)`);
+  }catch(e){ g.addColorStop(0,`rgba(${rgb},.1)`); g.addColorStop(1,`rgba(${rgb},.1)`); }
+  ctx.beginPath(); ctx.moveTo(cx,topY); ctx.lineTo(cx,botY);
+  ctx.strokeStyle=g; ctx.lineWidth=3; ctx.stroke();
+
+  // Glow
+  const gr=ctx.createRadialGradient(cx,by,0,cx,by,26);
+  gr.addColorStop(0,`rgba(${rgb},${(flash*.45).toFixed(3)})`);
+  gr.addColorStop(1,`rgba(${rgb},0)`);
+  ctx.beginPath(); ctx.arc(cx,by,26,0,Math.PI*2);
+  ctx.fillStyle=gr; ctx.fill();
+
+  // Ball
+  ctx.beginPath(); ctx.arc(cx,by,11,0,Math.PI*2);
+  ctx.fillStyle=`rgba(${rgb},${flash.toFixed(3)})`; ctx.fill();
+
+  // Count
+  const rem=Math.ceil(getPhaseDur()*(1-phaseProgress));
+  if(rem>0&&rem<99){
+    ctx.font='600 9px sans-serif';
+    ctx.fillStyle='#0D0D0F';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(rem,cx,by);
+  }
+
+  syncUI();
+  requestAnimationFrame(draw);
+}
+
+function getPhaseDur(){ return pattern[phase]||0; }
+
+function advancePhase(){
+  const seq=['inhale','holdIn','exhale','holdOut'].filter(ph=>ph==='inhale'||ph==='exhale'||pattern[ph]>0);
+  const next=seq[(seq.indexOf(phase)+1)%seq.length];
+  if(next==='inhale'&&phase!=='inhale') cycleCount++;
+  phase=next;
+  document.getElementById('cyclesBadge').textContent='cycle '+cycleCount;
+  if(phase!==prevPhase){ prevPhase=phase; onPhaseChange(); }
+}
+
+function syncUI(){
+  const cols={inhale:'var(--sky)',exhale:'var(--rose)',holdIn:'var(--gold)',holdOut:'var(--gold)'};
+  const lbls={inhale:'inhale',exhale:'exhale',holdIn:'hold',holdOut:'hold'};
+  const pill=document.getElementById('phasePill');
+  pill.textContent=lbls[phase]; pill.style.color=cols[phase]; pill.style.borderColor=cols[phase];
+  document.getElementById('boxIn').classList.toggle('lit',  phase==='inhale');
+  document.getElementById('boxOut').classList.toggle('lit', phase==='exhale');
+  document.getElementById('boxHoldIn').classList.toggle('lit',  phase==='holdIn');
+  document.getElementById('boxHoldOut').classList.toggle('lit', phase==='holdOut');
+}
+
+// ── PATTERNS ──
+const PATS={
+  '4-6':      {inhale:4,holdIn:0,exhale:6,holdOut:0},
+  '4-7-8':    {inhale:4,holdIn:7,exhale:8,holdOut:0},
+  'box':      {inhale:4,holdIn:4,exhale:4,holdOut:4},
+  'coherent': {inhale:5,holdIn:0,exhale:5,holdOut:0},
+  'calm':     {inhale:6,holdIn:2,exhale:8,holdOut:0},
+  'energize': {inhale:6,holdIn:2,exhale:4,holdOut:0},
+};
+
+function setPattern(key,el){
+  pattern={...PATS[key]};
+  activePatKey=key;
+  phase='inhale'; phaseProgress=0;
+  document.querySelectorAll('.pat-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('btnCustom').style.display='none';
+  renderBoxes();
+  renderEffects(key, pattern);
+  if(audioOn&&audioCtx) onPhaseChange();
+}
+
+function renderBoxes(){
+  const p=pattern;
+  document.getElementById('boxIn').textContent  = p.inhale;
+  document.getElementById('boxOut').textContent = p.exhale;
+
+  // HoldIn spinner
+  const ghi=document.getElementById('grpHoldIn');
+  const bhi=document.getElementById('boxHoldIn');
+  if(p.holdIn>0){
+    ghi.classList.remove('hold-off');
+    bhi.textContent=p.holdIn;
+  } else {
+    ghi.classList.add('hold-off');
+    bhi.textContent='+';
+  }
+
+  // HoldOut spinner
+  const gho=document.getElementById('grpHoldOut');
+  const bho=document.getElementById('boxHoldOut');
+  if(p.holdOut>0){
+    gho.classList.remove('hold-off');
+    bho.textContent=p.holdOut;
+  } else {
+    gho.classList.add('hold-off');
+    bho.textContent='+';
+  }
+}
+
+function adj(key,delta){
+  const min=(key==='inhale'||key==='exhale')?1:0;
+  pattern[key]=Math.max(min,Math.min(20,(pattern[key]||0)+delta));
+  renderBoxes();
+
+  // Mark as custom
+  activePatKey='custom';
+  document.querySelectorAll('.pat-btn').forEach(b=>b.classList.remove('active'));
+  const cb=document.getElementById('btnCustom');
+  cb.style.display='inline-block'; cb.classList.add('active');
+
+  renderEffects('custom', pattern);
+  phaseProgress=0;
+  if(audioOn&&audioCtx) onPhaseChange();
+}
+
+// ── AUDIO ──
+function ensureCtx(){
+  if(!audioCtx) audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+  if(audioCtx.state==='suspended') audioCtx.resume();
+  if(!audioCtx._built) buildReverb();
+}
+
+function buildReverb(){
+  const ac=audioCtx;
+  const rev=ac.createConvolver();
+  const secs=3.5,decay=2.8,sr=ac.sampleRate,len=sr*secs;
+  const buf=ac.createBuffer(2,len,sr);
+  for(let ch=0;ch<2;ch++){
+    const d=buf.getChannelData(ch);
+    for(let i=0;i<len;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/len,decay);
+  }
+  rev.buffer=buf;
+  const wet=ac.createGain(); wet.gain.value=0.38;
+  const dry=ac.createGain(); dry.gain.value=0.62;
+  audioCtx._dry=dry; audioCtx._wet=wet;
+  dry.connect(ac.destination);
+  wet.connect(rev); rev.connect(ac.destination);
+  audioCtx._built=true;
+}
+
+function getOut(){ return [audioCtx._dry,audioCtx._wet]; }
+
+function killNodes(){
+  const now=audioCtx?audioCtx.currentTime:0;
+  activeNodes.forEach(({osc,gain})=>{
+    try{ gain.gain.cancelScheduledValues(now); gain.gain.setTargetAtTime(0,now,0.08); setTimeout(()=>{try{osc.stop()}catch(e){}},400); }catch(e){}
+  });
+  activeNodes=[];
+}
+
+function startShepard(rising,dur){
+  ensureCtx(); killNodes();
+  const now=audioCtx.currentTime, N=7, baseHz=55;
+  const [dry,wet]=getOut();
+  for(let i=0;i<N;i++){
+    const osc=audioCtx.createOscillator(), gain=audioCtx.createGain();
+    osc.type='sine'; osc.connect(gain); gain.connect(dry); gain.connect(wet);
+    const f0=baseHz*Math.pow(2,i), f1=rising?f0*2:f0/2;
+    osc.frequency.setValueAtTime(f0,now);
+    osc.frequency.exponentialRampToValueAtTime(f1,now+dur);
+    const center=(N-1)/2, sigma=N/2.2;
+    const amp0=Math.exp(-0.5*((i-center)/sigma)**2)*.07;
+    const amp1=Math.exp(-0.5*((i+(rising?1:-1)-center)/sigma)**2)*.07;
+    gain.gain.setValueAtTime(0,now);
+    gain.gain.linearRampToValueAtTime(amp0,now+0.6);
+    gain.gain.linearRampToValueAtTime(amp1,now+dur-0.4);
+    gain.gain.linearRampToValueAtTime(0,now+dur);
+    osc.start(now); activeNodes.push({osc,gain});
+  }
+}
+
+function startDrone(isHoldIn){
+  ensureCtx(); killNodes();
+  const now=audioCtx.currentTime;
+  const freq=isHoldIn?130.81:523.25, dur=getPhaseDur(), fade=Math.min(0.5,dur*.2);
+  const [dry,wet]=getOut();
+  [[1,.10],[2,.04],[1.5,.03]].forEach(([mult,amp])=>{
+    const osc=audioCtx.createOscillator(), gain=audioCtx.createGain();
+    osc.type='sine'; osc.frequency.setValueAtTime(freq*mult,now);
+    osc.connect(gain); gain.connect(dry); gain.connect(wet);
+    gain.gain.setValueAtTime(0,now);
+    gain.gain.linearRampToValueAtTime(amp,now+fade);
+    gain.gain.setValueAtTime(amp,now+Math.max(dur-fade,fade));
+    gain.gain.linearRampToValueAtTime(0,now+dur);
+    osc.start(now); activeNodes.push({osc,gain});
+  });
+}
+
+function onPhaseChange(){
+  if(!audioOn||!audioCtx) return;
+  const dur=getPhaseDur(); if(!dur) return;
+  if(phase==='inhale')      startShepard(true,dur);
+  else if(phase==='exhale') startShepard(false,dur);
+  else if(phase==='holdIn') startDrone(true);
+  else if(phase==='holdOut')startDrone(false);
+}
+
+function toggleAudio(){
+  audioOn=!audioOn;
+  document.getElementById('audioBtn').classList.toggle('on',audioOn);
+  if(!audioOn){ if(audioCtx) killNodes(); }
+  else{ ensureCtx(); onPhaseChange(); }
+}
+
+let audioBootstrapped=false;
+document.addEventListener('pointerdown',()=>{
+  if(!audioBootstrapped){ audioBootstrapped=true; ensureCtx(); onPhaseChange(); }
+},{once:true});
+
+// ── INIT ──
+window.addEventListener('resize',resize);
+resize();
+renderBoxes();
+renderEffects('4-6',pattern);
+prevPhase='inhale';
+requestAnimationFrame(draw);
+</script>
+</body>
+</html>
